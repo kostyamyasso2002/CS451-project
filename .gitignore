@@ -1,1 +1,8 @@
 **/.DS_Store
+a.out
+aux
+cmake-build-debug
+cmake-build-debug-docker-dcl
+target
+example
+.idea
