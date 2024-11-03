@@ -11,6 +11,10 @@ public:
         }
     }
 
+    ~FileWriter() {
+        file.close();
+    }
+
     FileWriter& operator<<(const std::string &message) {
         std::lock_guard<std::mutex> lock(mutex);
         file << message << std::endl;

@@ -6,13 +6,11 @@
 class UdpReceiver {
 public:
     explicit UdpReceiver(const UdpSocket& socket, UdpSender& sender) : socket{socket}, sender{sender} {
-//        callbacks.emplace_back([this](const Message& message) {
-//            if (message.getType() == Message::Type::Simple) {
-//                this->sender.send(
-//                        Message::ack(message.getTo(), message.getFrom(), message.getId()), message.getFrom()
-//                        );
-//            }
-//        });
+        std::thread([this] {
+            while (true) {
+                receive();
+            }
+        }).detach();
     }
 
     void receive() {
@@ -40,11 +38,6 @@ public:
             data.push_back(*reinterpret_cast<int*>(buffer + i * 4));
         }
 
-//        for (auto i : data) {
-//            std::cout << i << " ";
-//        }
-//        std::cout << std::endl;
-
         auto message = Message::fromRawData(data);
 
         if (message.getType() == Message::Type::Ack) {
@@ -52,8 +45,8 @@ public:
         }
         if (message.getType() == Message::Type::Simple) {
             sender.send(
-                    Message::ack(message.getTo(), message.getFrom(), message.getId()), message.getFrom()
-                    );
+                    Message::ack(message.getTo(), message.getFrom(), message.getId()),
+                    0);
         }
 
         if (received_ids.count({message.getFrom(), message.getId()}) == 0) {
@@ -63,11 +56,6 @@ public:
                 callback(message);
             }
         }
-
-//        std::lock_guard<std::mutex> lock(mutex);
-//        for (const auto& callback: callbacks) {
-//            callback(message);
-//        }
     }
 
     void onMessage(std::function<void(const Message&)> callback) {

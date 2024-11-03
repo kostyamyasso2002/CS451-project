@@ -115,14 +115,6 @@ int main(int argc, char** argv) {
         }
     });
 
-    std::thread([&receiver]{
-        while (true) {
-            receiver.receive();
-        }
-    }).detach();
-
-
-
     if (parser.id() != receiverId) {
         for (int i = 1; i <= messagesNum; i++) {
             sender.send(Message::simple(static_cast<int>(parser.id()), static_cast<int>(receiverId), {i}));
