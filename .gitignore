@@ -1,6 +1,7 @@
 **/.DS_Store
 a.out
 aux
+aux2
 cmake-build-debug
 cmake-build-debug-docker-dcl
 target

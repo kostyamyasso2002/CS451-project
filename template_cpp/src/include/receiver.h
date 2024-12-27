@@ -2,6 +2,7 @@
 
 #include "udpsocket.h"
 #include "sender.h"
+#include <functional>
 
 class UdpReceiver {
 public:
@@ -44,14 +45,16 @@ public:
             sender.messageReceived(message.getData()[0]);
         }
         if (message.getType() == Message::Type::Simple) {
-            sender.send(
-                    Message::ack(message.getTo(), message.getFrom(), message.getId()),
-                    0);
+            for (int _ = 0; _ < 3; _++) {
+                sender.send(
+                        Message::ack(message.getTo(), message.getFrom(), message.getId()),
+                        0);
+            }
         }
 
         if (received_ids.count({message.getFrom(), message.getId()}) == 0) {
             received_ids.insert({message.getFrom(), message.getId()});
-
+            std::lock_guard<std::mutex> lock(mutex);
             for (const auto& callback: callbacks) {
                 callback(message);
             }

@@ -53,7 +53,7 @@ public:
 
     void messageReceived(int id) {
         std::lock_guard<std::mutex> lock(mutex);
-        std::cout << "Received ack " << id << std::endl;
+//        std::cout << "Received ack " << id << std::endl;
         received_ids.insert(id);
     }
 

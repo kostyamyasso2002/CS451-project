@@ -8,6 +8,7 @@
 #include "sender.h"
 #include "file_writer.h"
 #include "message.h"
+#include "fifo_uniform_broadcast.h"
 
 static void stop(int) {
     // reset signal handlers to default
@@ -96,7 +97,9 @@ int main(int argc, char** argv) {
         }
 
 
-        configFile >> messagesNum >> receiverId;
+        configFile >> messagesNum
+        >> receiverId
+        ;
     } else {
         messagesNum = 10;
         receiverId = 2;
@@ -106,20 +109,29 @@ int main(int argc, char** argv) {
 
     // Create a UDP socket for broadcasting messages.
 
-    receiver.onMessage([&fileWriter](const Message& message) {
-        if (message.getType() == Message::Type::Simple) {
-            std::string data = "d ";
-            data += std::to_string(message.getFrom()) + " " + std::to_string(message.getData()[0]);
+//    receiver.onMessage([&fileWriter](const Message& message) {
+//        if (message.getType() == Message::Type::Simple) {
+//            std::string data = "d ";
+//            data += std::to_string(message.getFrom()) + " " + std::to_string(message.getData()[0]);
+//
+//            fileWriter << data;
+//        }
+//    });
+//
+//    if (parser.id() != receiverId) {
+//        for (int i = 1; i <= messagesNum; i++) {
+//            sender.send(Message::simple(static_cast<int>(parser.id()), static_cast<int>(receiverId), {i}));
+//            fileWriter << "b " + std::to_string(i);
+//        }
+//    }
 
-            fileWriter << data;
-        }
-    });
+    FifoUniformBroadcast fifoUniformBroadcast{sender, receiver, fileWriter, static_cast<int>(hosts.size() / 2 + 1),
+                                              static_cast<int>(parser.id()), static_cast<int>(hosts.size())};
 
-    if (parser.id() != receiverId) {
-        for (int i = 1; i <= messagesNum; i++) {
-            sender.send(Message::simple(static_cast<int>(parser.id()), static_cast<int>(receiverId), {i}));
-            fileWriter << "b " + std::to_string(i);
-        }
+
+    for (int i = 1; i <= messagesNum; i++) {
+        fileWriter << "b " + std::to_string(i);
+        fifoUniformBroadcast.broadcast({i});
     }
 
     while (true) {

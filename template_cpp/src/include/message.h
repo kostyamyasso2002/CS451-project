@@ -39,7 +39,7 @@ public:
         return id;
     }
 
-    [[nodiscard]] size_t bytes() const {
+    [[nodiscard]] std::size_t bytes() const {
         return data.size() * sizeof(int);
     }
 

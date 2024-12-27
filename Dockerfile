@@ -1,26 +1,32 @@
-# Use a minimal base image like Ubuntu or Debian
-FROM ubuntu:20.04
+# Use Ubuntu 18.04 to match the required package versions
+FROM ubuntu:18.04
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Install g++ and cmake
-RUN apt-get update && apt-get install -y \
-    g++ \
-    cmake \
+# Install specific versions of g++, gcc, and cmake, along with other required packages
+RUN apt-get update && \
+    apt-get install -y \
+    g++-7 \
+    gcc-7 \
+    cmake=3.10.2-1ubuntu2.18.04.2 \
     tmux \
     gdb \
     python3 \
     iproute2 \
     sudo \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set gcc and g++ to use version 7
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 100
 
 # Add sudo user with password "dcl"
-RUN useradd -m -s /bin/bash -G sudo dcl
-RUN echo "dcl:dcl" | chpasswd
+RUN useradd -m -s /bin/bash -G sudo dcl && \
+    echo "dcl:dcl" | chpasswd
 
-# Copy your local project into the container (adjust the path as needed)
+# Copy your local project into the container
 COPY . /app
 
 # Start an interactive shell session by default
