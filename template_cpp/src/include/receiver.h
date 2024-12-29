@@ -12,6 +12,26 @@ public:
                 receive();
             }
         }).detach();
+        std::thread([this] {
+            while (true) {
+                receive();
+            }
+        }).detach();
+        std::thread([this] {
+            while (true) {
+                receive();
+            }
+        }).detach();
+        std::thread([this] {
+            while (true) {
+                receive();
+            }
+        }).detach();
+        std::thread([this] {
+            while (true) {
+                receive();
+            }
+        }).detach();
     }
 
     void receive() {

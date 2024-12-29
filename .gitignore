@@ -2,6 +2,7 @@
 a.out
 aux
 aux2
+aux3
 cmake-build-debug
 cmake-build-debug-docker-dcl
 target

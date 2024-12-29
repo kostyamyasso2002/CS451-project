@@ -9,6 +9,8 @@
 #include "file_writer.h"
 #include "message.h"
 #include "fifo_uniform_broadcast.h"
+#include "lattice_agreement.h"
+#include <condition_variable>
 
 static void stop(int) {
     // reset signal handlers to default
@@ -26,6 +28,8 @@ static void stop(int) {
     // exit directly from signal handler
     exit(0);
 }
+
+
 
 
 Host findHostById(const std::vector<Host>& hosts, unsigned long id) {
@@ -88,21 +92,33 @@ int main(int argc, char** argv) {
     FileWriter fileWriter{parser.outputPath()};
 
     // read config file
-    int messagesNum;
-    uint32_t receiverId;
+//    int messagesNum;
+//    uint32_t receiverId;
+    int p, vs, ds;
+    std::vector<std::set<int>> prop;
     if (requireConfig) {
         std::ifstream configFile(parser.configPath());
         if (!configFile.is_open()) {
             throw std::runtime_error("Failed to open config file");
         }
 
-
-        configFile >> messagesNum
-        >> receiverId
-        ;
+        std::string line;
+        std::getline(configFile, line);
+        std::istringstream iss(line);
+        iss >> p >> vs >> ds;
+        prop.resize(static_cast<unsigned long>(p));
+        for (int i = 0; i < p; i++) {
+            std::getline(configFile, line);
+            std::istringstream iss_(line);
+            int cur;
+            while (iss_ >> cur) {
+                prop[static_cast<unsigned long>(i)].insert(cur);
+            }
+        }
     } else {
-        messagesNum = 10;
-        receiverId = 2;
+        throw "kek";
+//        messagesNum = 10;
+//        receiverId = 2;
     }
 
     std::cout << "Broadcasting and delivering messages...\n\n";
@@ -125,14 +141,90 @@ int main(int argc, char** argv) {
 //        }
 //    }
 
-    FifoUniformBroadcast fifoUniformBroadcast{sender, receiver, fileWriter, static_cast<int>(hosts.size() / 2 + 1),
-                                              static_cast<int>(parser.id()), static_cast<int>(hosts.size())};
+//    FifoUniformBroadcast fifoUniformBroadcast{sender, receiver, fileWriter, static_cast<int>(hosts.size() / 2 + 1),
+//                                              static_cast<int>(parser.id()), static_cast<int>(hosts.size())};
+//
+//
+//    for (int i = 1; i <= messagesNum; i++) {
+//        fileWriter << "b " + std::to_string(i);
+//        fifoUniformBroadcast.broadcast({i});
+//    }
 
+    std::cout << "I am " << parser.id() << " with majority " << static_cast<int>(hosts.size() / 2 + 1) << std::endl;
 
-    for (int i = 1; i <= messagesNum; i++) {
-        fileWriter << "b " + std::to_string(i);
-        fifoUniformBroadcast.broadcast({i});
+//    LatticeAgreement latticeAgreement{0, sender, receiver, fileWriter, static_cast<int>(hosts.size() / 2 + 1),
+//                                      static_cast<int>(parser.id()), static_cast<int>(hosts.size())};
+
+    std::vector<LatticeAgreement> agreements;
+    Semaphore sem{10};
+    Feedback feedback(fileWriter, sem);
+
+    agreements.reserve(static_cast<unsigned long>(p));
+    for (int i = 0; i < p; i++) {
+        agreements.emplace_back(i, sender, receiver, feedback, static_cast<int>(hosts.size() / 2 + 1),
+                                static_cast<int>(parser.id()), static_cast<int>(hosts.size()));
     }
+
+    receiver.onMessage([&agreements](const Message& message) {
+
+        if (message.getType() != Message::Type::Simple) {
+            return;
+        }
+        int proposal_number;
+        std::set<int> proposed_value_;
+
+        // output message.getData() to see the content of the message
+//            std::cout << "Message data: ";
+//            for (int i = 0; i < static_cast<int>(message.getData().size()); i++) {
+//                std::cout << message.getData()[static_cast<unsigned long>(i)] << " ";
+//            }
+        int index = message.getData()[0];
+
+        switch (static_cast<MessageType>(message.getData()[1])) {
+            case MessageType::Proposal:
+                proposal_number = message.getData()[2];
+                for (int i = 3; i < static_cast<int>(message.getData().size()); i++) {
+                    proposed_value_.insert(message.getData()[static_cast<unsigned long>(i)]);
+                }
+                agreements[static_cast<unsigned long>(index)].recv_proposal(message.getFrom(), proposal_number, proposed_value_);
+                break;
+            case MessageType::Ack:
+                agreements[static_cast<unsigned long>(index)].recv_ack(message.getData()[2]);
+                break;
+            case MessageType::Nack:
+                proposal_number = message.getData()[2];
+                for (int i = 3; i < static_cast<int>(message.getData().size()); i++) {
+                    proposed_value_.insert(message.getData()[static_cast<unsigned long>(i)]);
+                }
+                agreements[static_cast<unsigned long>(index)].recv_nack(proposal_number, proposed_value_);
+                break;
+            default:
+                throw std::runtime_error("Unknown message type");
+        }
+    });
+
+
+    std::cout << "Proposing ";
+    for (int i = 0; i < p; i++) {
+        std::cout << "{";
+        for (int value: prop[static_cast<unsigned long>(i)]) {
+            std::cout << value << " ";
+        }
+        std::cout << "}";
+    }
+    std::cout << std::endl;
+
+//    latticeAgreement.propose(prop[0]);
+    for (int i = 0; i < p; ++i) {
+//        latticeAgreement.propose(prop[static_cast<unsigned long>(i)]);
+
+        sem.acquire();
+        std::thread([&agreements, i, &prop]() {
+            agreements[static_cast<unsigned long>(i)].propose(prop[static_cast<unsigned long>(i)]);
+        }).detach();
+    }
+
+
 
     while (true) {
         std::this_thread::sleep_for(std::chrono::hours(1));
